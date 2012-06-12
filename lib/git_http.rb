@@ -5,7 +5,7 @@ require 'rack/utils'
 require 'time'
 
 class GitHttp
-  class App 
+  class App
 
     SERVICES = [
       ["POST", 'service_rpc',      "(.*?)/git-upload-pack$",  'upload-pack'],
@@ -19,7 +19,7 @@ class GitHttp
       ["GET",  'get_text_file',    "(.*?)/objects/info/[^/]*$"],
       ["GET",  'get_loose_object', "(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$"],
       ["GET",  'get_pack_file',    "(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$"],
-      ["GET",  'get_idx_file',     "(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$"],      
+      ["GET",  'get_idx_file',     "(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$"],
     ]
 
     def initialize(config = false)
@@ -37,7 +37,7 @@ class GitHttp
     def call(env)
       @env = env
       @req = Rack::Request.new(env)
-      
+
       cmd, path, @reqfile, @rpc = match_routing
 
       return render_method_not_allowed if cmd == 'not_allowed'
