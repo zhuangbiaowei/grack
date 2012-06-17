@@ -4,8 +4,8 @@ require 'rack/response'
 require 'rack/utils'
 require 'time'
 
-class GitHttp
-  class App
+module Grack
+  class Server
 
     SERVICES = [
       ["POST", 'service_rpc',      "(.*?)/git-upload-pack$",  'upload-pack'],
