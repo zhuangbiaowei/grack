@@ -4,7 +4,7 @@ require 'test/unit'
 require 'mocha'
 require 'digest/sha1'
 
-require_relative '../lib/server.rb'
+require_relative '../lib/grack/server.rb'
 require 'pp'
 
 class GitHttpTest < Test::Unit::TestCase
