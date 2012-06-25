@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+require File.expand_path('../lib/grack/version', __FILE__)
 
 Gem::Specification.new do |gem|
   gem.authors       = ["Scott Chacon"]
@@ -12,7 +13,8 @@ Gem::Specification.new do |gem|
   gem.test_files    = `git ls-files -- tests/*`.split("\n")
   gem.name          = "grack"
   gem.require_paths = ["lib"]
-  gem.version       = "1.0.0"
+  gem.version       = Grack::VERSION
 
+  gem.add_dependency("rack", "~> 1.4.1")
   gem.add_development_dependency("mocha", "~> 0.11")
 end
