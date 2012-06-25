@@ -1,9 +1,9 @@
 task :default => :test
- 
+
 desc "Run the tests."
 task :test do
-  Dir.glob("tests/*_test.rb").each do |file|
-  	require file
+  Dir.glob("tests/*_test.rb").each do |f|
+  	system "ruby #{f}"
   end
 end
 
@@ -19,6 +19,6 @@ namespace :grack do
     system "rackup config.ru -p 8080"
   end
 end
- 
+
 desc "Start everything."
 multitask :start => [ 'grack:start' ]

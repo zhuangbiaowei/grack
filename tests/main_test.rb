@@ -1,11 +1,10 @@
-require 'rubygems'
 require 'rack'
 require 'rack/test'
 require 'test/unit'
 require 'mocha'
 require 'digest/sha1'
 
-require 'lib/git_http'
+require_relative '../lib/server.rb'
 require 'pp'
 
 class GitHttpTest < Test::Unit::TestCase
@@ -21,7 +20,7 @@ class GitHttpTest < Test::Unit::TestCase
       :upload_pack => true,
       :receive_pack => true,
     }
-    GitHttp::App.new(config)
+    Grack::Server.new(config)
   end
 
   def test_upload_pack_advertisement
@@ -126,7 +125,7 @@ class GitHttpTest < Test::Unit::TestCase
     File.stubs('size?').returns(false)
     get "/example/.git/HEAD"
     assert_equal 200, r.status
-    assert_equal 41, r.body.size  # submodules have detached head
+    assert_equal 46, r.body.size  # submodules have detached head
   end
 
   def test_config_upload_pack_off
@@ -151,7 +150,7 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_git_config_receive_pack
-    app1 = GitHttp::App.new({:project_root => example})
+    app1 = Grack::Server.new({:project_root => example})
     session = Rack::Test::Session.new(app1)
 
     app1.stubs(:get_git_config).with('http.receivepack').returns('')
@@ -168,7 +167,7 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_git_config_upload_pack
-    app1 = GitHttp::App.new({:project_root => example})
+    app1 = Grack::Server.new({:project_root => example})
     session = Rack::Test::Session.new(app1)
 
     app1.stubs(:get_git_config).with('http.uploadpack').returns('')
@@ -192,7 +191,7 @@ class GitHttpTest < Test::Unit::TestCase
 
   def write_test_objects
     content = Digest::SHA1.hexdigest('gitrocks')
-    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')    
+    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')
     obj = File.join(base, '20')
     Dir.mkdir(obj) rescue nil
     file = File.join(obj, content[0, 38])
@@ -206,7 +205,7 @@ class GitHttpTest < Test::Unit::TestCase
 
   def remove_test_objects
     content = Digest::SHA1.hexdigest('gitrocks')
-    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')    
+    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')
     obj = File.join(base, '20')
     file = File.join(obj, content[0, 38])
     pack = File.join(base, 'pack', "pack-#{content}.pack")
