@@ -15,7 +15,7 @@ module Grack
         bad_request
       else
         result = if (access = valid? and access == true)
-          env['REMOTE_USER'] = @auth.username
+          @env['REMOTE_USER'] = @auth.username
           @app.call(env)
         else
           if access == '404'
