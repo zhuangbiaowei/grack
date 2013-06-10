@@ -218,7 +218,6 @@ class GitHttpTest < Test::Unit::TestCase
 end
 
 class MockProcess
-
   def initialize
     @counter = 0
   end
@@ -234,4 +233,7 @@ class MockProcess
     @counter > 1 ? true : false
   end
 
+  def close_write
+    true
+  end
 end
