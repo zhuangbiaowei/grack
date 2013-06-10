@@ -1,6 +1,9 @@
 Grack - Ruby/Rack Git Smart-HTTP Server Handler
 ===============================================
 
+[![Build Status](https://travis-ci.org/gitlabhq/grack.png)](https://travis-ci.org/gitlabhq/grack)
+[![Code Climate](https://codeclimate.com/github/gitlabhq/grack.png)](https://codeclimate.com/github/gitlabhq/grack)
+
 This project aims to replace the builtin git-http-backend CGI handler
 distributed with C Git with a Rack application.  This reason for doing this
 is to allow far more webservers to be able to handle Git smart http requests.
@@ -26,6 +29,7 @@ These web servers include Rack handlers in their distributions:
 * Fuzed
 * Phusion Passenger (which is mod_rack for Apache and for nginx)
 * Unicorn
+* Puma
 
 With [Warbler](http://caldersphere.rubyforge.org/warbler/classes/Warbler.html),
 and JRuby, we can also generate a WAR file that can be deployed in any Java
