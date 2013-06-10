@@ -9,4 +9,6 @@ rvm:
   - 2.0.0
 before_script:
   - "bundle install"
+  - "git submodule init"
+  - "git submodule update"
 script: "bundle exec rake"
