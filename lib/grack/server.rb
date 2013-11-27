@@ -55,6 +55,12 @@ module Grack
     # actual command handling functions
     # ---------------------------------
 
+    # Uses chunked (streaming) transfer, otherwise response
+    # blocks to calculate Content-Length header
+    # http://en.wikipedia.org/wiki/Chunked_transfer_encoding
+
+    CRLF = "\r\n"
+
     def service_rpc
       return render_no_access if !has_access(@rpc, true)
       input = read_body
@@ -62,17 +68,30 @@ module Grack
       @res = Rack::Response.new
       @res.status = 200
       @res["Content-Type"] = "application/x-git-%s-result" % @rpc
+      @res["Transfer-Encoding"] = "chunked"
+      @res["Cache-Control"] = "no-cache"
+
       @res.finish do
         command = git_command("#{@rpc} --stateless-rpc #{@dir}")
         IO.popen(command, File::RDWR) do |pipe|
           pipe.write(input)
           pipe.close_write
           while !pipe.eof?
-            block = pipe.read(8192) # 8M at a time
-            @res.write block        # steam it to the client
+            block = pipe.read(8192)           # 8KB at a time
+            @res.write encode_chunk(block)    # stream it to the client
           end
+          @res.write terminating_chunk
         end
       end
+    end
+
+    def encode_chunk(chunk)
+      size_in_hex = chunk.size.to_s(16)
+      [ size_in_hex, CRLF, chunk, CRLF ].join
+    end
+
+    def terminating_chunk
+      [ 0, CRLF, CRLF ].join
     end
 
     def get_info_refs
