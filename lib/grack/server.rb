@@ -71,7 +71,7 @@ module Grack
 
       @res.finish do
         command = git_command(%W(#{@rpc} --stateless-rpc #{@dir}))
-        IO.popen(command, File::RDWR, popen_options) do |pipe|
+        IO.popen(popen_env, command, File::RDWR, popen_options) do |pipe|
           pipe.write(input)
           pipe.close_write
           while !pipe.eof?
@@ -264,11 +264,15 @@ module Grack
     end
 
     def capture(command)
-      IO.popen(command, popen_options).read
+      IO.popen(popen_env, command, popen_options).read
     end
 
     def popen_options
-      {chdir: @dir}
+      {chdir: @dir, unsetenv_others: true}
+    end
+
+    def popen_env
+      {'PATH' => ENV['PATH']}
     end
 
     # --------------------------------------
