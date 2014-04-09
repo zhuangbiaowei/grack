@@ -46,9 +46,7 @@ module Grack
       @dir = get_git_dir(path)
       return render_not_found if !@dir
 
-      Dir.chdir(@dir) do
-        self.method(cmd).call()
-      end
+      self.method(cmd).call()
     end
 
     # ---------------------------------
@@ -72,8 +70,8 @@ module Grack
       @res["Cache-Control"] = "no-cache"
 
       @res.finish do
-        command = git_command("#{@rpc} --stateless-rpc #{@dir}")
-        IO.popen(command, File::RDWR) do |pipe|
+        command = git_command(%W(#{@rpc} --stateless-rpc #{@dir}))
+        IO.popen(popen_env, command, File::RDWR, popen_options) do |pipe|
           pipe.write(input)
           pipe.close_write
           while !pipe.eof?
@@ -98,8 +96,8 @@ module Grack
       service_name = get_service_type
 
       if has_access(service_name)
-        cmd = git_command("#{service_name} --stateless-rpc --advertise-refs .")
-        refs = `#{cmd}`
+        cmd = git_command(%W(#{service_name} --stateless-rpc --advertise-refs #{@dir}))
+        refs = capture(cmd)
 
         @res = Rack::Response.new
         @res.status = 200
@@ -189,7 +187,7 @@ module Grack
     end
 
     def get_git_dir(path)
-      root = @config[:project_root] || `pwd`
+      root = @config[:project_root] || Dir.pwd
       path = File.join(root, path)
       if File.exists?(path) # TODO: check is a valid git directory
         return path
@@ -244,8 +242,8 @@ module Grack
     end
 
     def get_git_config(config_name)
-      cmd = git_command("config #{config_name}")
-      `#{cmd}`.chomp
+      cmd = git_command(%W(config #{config_name}))
+      capture(cmd).chomp
     end
 
     def read_body
@@ -257,14 +255,24 @@ module Grack
     end
 
     def update_server_info
-      cmd = git_command("update-server-info")
-      `#{cmd}`
+      cmd = git_command(%W(update-server-info))
+      capture(cmd)
     end
 
     def git_command(command)
-      git_bin = @config[:git_path] || 'git'
-      command = "#{git_bin} #{command}"
-      command
+      [@config[:git_path] || 'git'] + command
+    end
+
+    def capture(command)
+      IO.popen(popen_env, command, popen_options).read
+    end
+
+    def popen_options
+      {chdir: @dir, unsetenv_others: true}
+    end
+
+    def popen_env
+      {'PATH' => ENV['PATH']}
     end
 
     # --------------------------------------
