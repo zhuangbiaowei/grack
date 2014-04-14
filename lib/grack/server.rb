@@ -272,7 +272,7 @@ module Grack
     end
 
     def popen_env
-      {'PATH' => ENV['PATH']}
+      {'PATH' => ENV['PATH'], 'GL_ID' => ENV['GL_ID']}
     end
 
     # --------------------------------------
