@@ -183,6 +183,22 @@ class GitHttpTest < Test::Unit::TestCase
     assert_equal 404, session.last_response.status
   end
 
+  def test_send_file
+    app1 = app
+    app1.instance_variable_set(:@dir, Dir.pwd)
+    # Reject path traversal
+    assert_equal 404, app1.send_file('tests/../tests', 'text/plain').first
+    # Reject paths starting with '|', avoid File.read('|touch /tmp/pawned; ls /tmp')
+    assert_equal 404, app1.send_file('|tests', 'text/plain').first
+  end
+
+  def test_get_git_dir
+    # Guard against non-existent directories
+    assert_equal false, app.get_git_dir('foobar')
+    # Guard against path traversal
+    assert_equal false, app.get_git_dir('/../tests')
+  end
+
   private
 
   def r
