@@ -161,6 +161,13 @@ module Grack
       reqfile = File.join(@dir, reqfile)
       return render_not_found if !F.exists?(reqfile)
 
+      if reqfile == File.realpath(reqfile)
+        # reqfile looks legit: no path traversal, no leading '|'
+      else
+        # reqfile does not look trustworthy; abort
+        return render_not_found
+      end
+
       @res = Rack::Response.new
       @res.status = 200
       @res["Content-Type"]  = content_type
@@ -189,10 +196,13 @@ module Grack
     def get_git_dir(path)
       root = @config[:project_root] || Dir.pwd
       path = File.join(root, path)
-      if File.exists?(path) # TODO: check is a valid git directory
-        return path
+      if !File.exists?(path)
+        false
+      elsif File.realpath(path) != path # looks like path traversal
+        false
+      else
+        path # TODO: check is a valid git directory
       end
-      false
     end
 
     def get_service_type
