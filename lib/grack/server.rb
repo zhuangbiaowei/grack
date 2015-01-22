@@ -278,7 +278,7 @@ module Grack
     end
 
     def capture(command)
-      IO.popen(popen_env, command, popen_options).read
+      IO.popen(popen_env, command, popen_options) { |p| p.read }
     end
 
     def popen_options
