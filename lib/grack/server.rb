@@ -1,12 +1,6 @@
-require 'zlib'
-require 'rack/request'
-require 'rack/response'
-require 'rack/utils'
-require 'time'
-
 module Grack
   class Server
-
+    attr_reader :git
     SERVICES = [
       ["POST", 'service_rpc',      "(.*?)/git-upload-pack$",  'upload-pack'],
       ["POST", 'service_rpc',      "(.*?)/git-receive-pack$", 'receive-pack'],
@@ -43,13 +37,11 @@ module Grack
       @req = Rack::Request.new(env)
 
       cmd, path, @reqfile, @rpc = match_routing
-
       return render_method_not_allowed if cmd == 'not_allowed'
       return render_not_found if !cmd
 
       @dir = get_git_dir(path)
       return render_not_found if !@dir
-
       self.method(cmd).call()
     end
 
@@ -74,8 +66,7 @@ module Grack
       @res["Cache-Control"] = "no-cache"
 
       @res.finish do
-        command = git_command(%W(#{@rpc} --stateless-rpc #{@dir}))
-        IO.popen(popen_env, command, File::RDWR, popen_options) do |pipe|
+        git.execute_with_block([@rpc, '--stateless-rpc', @dir]) do |pipe|
           pipe.write(input)
           pipe.close_write
           while !pipe.eof?
@@ -98,11 +89,8 @@ module Grack
 
     def get_info_refs
       service_name = get_service_type
-
       if has_access(service_name)
-        cmd = git_command(%W(#{service_name} --stateless-rpc --advertise-refs #{@dir}))
-        refs = capture(cmd)
-
+        refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', @dir])
         @res = Rack::Response.new
         @res.status = 200
         @res["Content-Type"] = "application/x-git-%s-advertisement" % service_name
@@ -117,7 +105,7 @@ module Grack
     end
 
     def dumb_info_refs
-      update_server_info
+      git.update_server_info
       send_file(@reqfile, "text/plain; charset=utf-8") do
         hdr_nocache
       end
@@ -200,12 +188,11 @@ module Grack
     def get_git_dir(path)
       root = @config[:project_root] || Dir.pwd
       path = File.join(root, path)
-      if !File.exists?(path)
-        false
-      elsif File.realpath(path) != path # looks like path traversal
-        false
+      if File.exists?(path) and File.realpath(path) == path
+        @git = Grack::Git.new(@config[:git_path], path)
+        git.repo || false
       else
-        path # TODO: check is a valid git directory
+        false
       end
     end
 
@@ -242,22 +229,7 @@ module Grack
       if rpc == 'upload-pack'
         return @config[:upload_pack] if @config.include? :upload_pack
       end
-      return get_config_setting(rpc)
-    end
-
-    def get_config_setting(service_name)
-      service_name = service_name.gsub('-', '')
-      setting = get_git_config("http.#{service_name}")
-      if service_name == 'uploadpack'
-        return setting != 'false'
-      else
-        return setting == 'true'
-      end
-    end
-
-    def get_git_config(config_name)
-      cmd = git_command(%W(config #{config_name}))
-      capture(cmd).chomp
+      return git.config_setting(rpc)
     end
 
     def read_body
@@ -266,27 +238,6 @@ module Grack
       else
         input = @req.body.read
       end
-    end
-
-    def update_server_info
-      cmd = git_command(%W(update-server-info))
-      capture(cmd)
-    end
-
-    def git_command(command)
-      [@config[:git_path] || 'git'] + command
-    end
-
-    def capture(command)
-      IO.popen(popen_env, command, popen_options) { |p| p.read }
-    end
-
-    def popen_options
-      {chdir: @dir, unsetenv_others: true}
-    end
-
-    def popen_env
-      {'PATH' => ENV['PATH'], 'GL_ID' => ENV['GL_ID']}
     end
 
     # --------------------------------------

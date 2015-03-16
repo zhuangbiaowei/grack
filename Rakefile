@@ -19,7 +19,7 @@ end
 namespace :grack do
   desc "Start Grack"
   task :start do
-    system "rackup config.ru -p 8080"
+    system('./bin/testserver')
   end
 end
 
