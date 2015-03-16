@@ -1,6 +1,15 @@
+require 'zlib'
+require 'rack/request'
+require 'rack/response'
+require 'rack/utils'
+require 'time'
+require 'grack/git'
+
 module Grack
   class Server
+
     attr_reader :git
+
     SERVICES = [
       ["POST", 'service_rpc',      "(.*?)/git-upload-pack$",  'upload-pack'],
       ["POST", 'service_rpc',      "(.*?)/git-receive-pack$", 'receive-pack'],
@@ -37,11 +46,13 @@ module Grack
       @req = Rack::Request.new(env)
 
       cmd, path, @reqfile, @rpc = match_routing
+
       return render_method_not_allowed if cmd == 'not_allowed'
       return render_not_found if !cmd
 
-      @dir = get_git_dir(path)
-      return render_not_found if !@dir
+      @git = get_git(path)
+      return render_not_found unless git.valid_repo?
+
       self.method(cmd).call()
     end
 
@@ -66,7 +77,7 @@ module Grack
       @res["Cache-Control"] = "no-cache"
 
       @res.finish do
-        git.execute_with_block([@rpc, '--stateless-rpc', @dir]) do |pipe|
+        git.execute([@rpc, '--stateless-rpc', git.repo]) do |pipe|
           pipe.write(input)
           pipe.close_write
           while !pipe.eof?
@@ -89,8 +100,10 @@ module Grack
 
     def get_info_refs
       service_name = get_service_type
+
       if has_access(service_name)
-        refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', @dir])
+        refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', git.repo])
+
         @res = Rack::Response.new
         @res.status = 200
         @res["Content-Type"] = "application/x-git-%s-advertisement" % service_name
@@ -150,7 +163,7 @@ module Grack
 
     # some of this borrowed from the Rack::File implementation
     def send_file(reqfile, content_type)
-      reqfile = File.join(@dir, reqfile)
+      reqfile = File.join(git.repo, reqfile)
       return render_not_found if !F.exists?(reqfile)
 
       if reqfile == File.realpath(reqfile)
@@ -185,15 +198,10 @@ module Grack
       end
     end
 
-    def get_git_dir(path)
+    def get_git(path)
       root = @config[:project_root] || Dir.pwd
       path = File.join(root, path)
-      if File.exists?(path) and File.realpath(path) == path
-        @git = Grack::Git.new(@config[:git_path], path)
-        git.repo || false
-      else
-        false
-      end
+      Grack::Git.new(@config[:git_path], path)
     end
 
     def get_service_type

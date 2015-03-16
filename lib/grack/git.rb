@@ -1,10 +1,11 @@
 module Grack
   class Git
+
     attr_reader :repo
+
     def initialize(git_path, repo_path)
       @git_path = git_path
       @repo = repo_path
-      @repo = nil unless valid_git_dir?
     end
 
     def update_server_info
@@ -20,12 +21,12 @@ module Grack
     end
 
     def execute(cmd)
-      capture( command(cmd) ).chomp
-    end
-
-    def execute_with_block(cmd)
-      IO.popen(popen_env, command(cmd), File::RDWR, popen_options) do |pipe|
-        yield(pipe)
+      if block_given?
+        IO.popen(popen_env, command(cmd), File::RDWR, popen_options) do |pipe|
+          yield(pipe)
+        end
+      else
+        capture( command(cmd) ).chomp
       end
     end
 
@@ -51,8 +52,9 @@ module Grack
       execute(%W(config #{config_name}))
     end
 
-    def valid_git_dir?
-      '.' == execute(%W(rev-parse --git-dir))
+    def valid_repo?
+      file_exists = (File.exists?(repo) && File.realpath(repo) == repo)
+      file_exists && ( '.' == execute(%W(rev-parse --git-dir)) )
     end
   end
 end
