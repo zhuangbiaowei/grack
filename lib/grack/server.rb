@@ -48,7 +48,7 @@ module Grack
       cmd, path, @reqfile, @rpc = match_routing
 
       return render_method_not_allowed if cmd == 'not_allowed'
-      return render_not_found if !cmd
+      return render_not_found unless cmd
 
       @git = get_git(path)
       return render_not_found unless git.valid_repo?
@@ -67,7 +67,7 @@ module Grack
     CRLF = "\r\n"
 
     def service_rpc
-      return render_no_access if !has_access(@rpc, true)
+      return render_no_access unless has_access(@rpc, true)
       input = read_body
 
       @res = Rack::Response.new
@@ -164,7 +164,7 @@ module Grack
     # some of this borrowed from the Rack::File implementation
     def send_file(reqfile, content_type)
       reqfile = File.join(git.repo, reqfile)
-      return render_not_found if !F.exists?(reqfile)
+      return render_not_found unless F.exists?(reqfile)
 
       if reqfile == File.realpath(reqfile)
         # reqfile looks legit: no path traversal, no leading '|'
@@ -206,7 +206,7 @@ module Grack
 
     def get_service_type
       service_type = @req.params['service']
-      return false if !service_type
+      return false unless service_type
       return false if service_type[0, 4] != 'git-'
       service_type.gsub('git-', '')
     end
@@ -230,7 +230,7 @@ module Grack
       if check_content_type
         return false if @req.content_type != "application/x-git-%s-request" % rpc
       end
-      return false if !['upload-pack', 'receive-pack'].include? rpc
+      return false unless ['upload-pack', 'receive-pack'].include? rpc
       if rpc == 'receive-pack'
         return @config[:receive_pack] if @config.include? :receive_pack
       end
