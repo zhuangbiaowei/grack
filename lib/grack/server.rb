@@ -82,7 +82,8 @@ module Grack
           pipe.write(input)
           pipe.close_write
 
-          while block = pipe.read(8192)     # 8KB at a time
+          while !pipe.eof?
+            block = pipe.read(8192)     # 8KB at a time
             @res.write encode_chunk(block)  # stream it to the client
           end
 
