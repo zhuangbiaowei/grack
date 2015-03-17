@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    gitlab-grack (2.0.0.rc2)
+    gitlab-grack (2.0.0)
       rack (~> 1.5.1)
 
 GEM
