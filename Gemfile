@@ -4,5 +4,6 @@ gemspec
 
 group :development do
   gem 'rake'
+  gem 'pry'
   gem 'rack-test'
 end

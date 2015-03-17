@@ -5,6 +5,7 @@ require 'mocha'
 require 'digest/sha1'
 
 require_relative '../lib/grack/server.rb'
+require_relative '../lib/grack/git.rb'
 require 'pp'
 
 class GitHttpTest < Test::Unit::TestCase
@@ -52,11 +53,13 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_no_access_wrong_path_rcp
+    Grack::Git.any_instance.stubs(:valid_repo?).returns(false)
     post "/example-wrong/git-upload-pack"
     assert_equal 404, r.status
   end
 
   def test_upload_pack_rpc
+    Grack::Git.any_instance.stubs(:valid_repo?).returns(true)
     IO.stubs(:popen).returns(MockProcess.new)
     post "/example/git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
     assert_equal 200, r.status
@@ -74,6 +77,7 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_recieve_pack_rpc
+    Grack::Git.any_instance.stubs(:valid_repo?).returns(true)
     IO.stubs(:popen).yields(MockProcess.new)
     post "/example/git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
     assert_equal 200, r.status
@@ -151,52 +155,56 @@ class GitHttpTest < Test::Unit::TestCase
 
   def test_git_config_receive_pack
     app1 = Grack::Server.new({:project_root => example})
+    app1.instance_variable_set(:@git, Grack::Git.new('git', example ))
     session = Rack::Test::Session.new(app1)
-
-    app1.stubs(:get_git_config).with('http.receivepack').returns('')
+    git = Grack::Git
+    git.any_instance.stubs(:config).with('http.receivepack').returns('')
     session.get "/example/info/refs?service=git-receive-pack"
     assert_equal 404, session.last_response.status
 
-    app1.stubs(:get_git_config).with('http.receivepack').returns('true')
+    git.any_instance.stubs(:config).with('http.receivepack').returns('true')
     session.get "/example/info/refs?service=git-receive-pack"
     assert_equal 200, session.last_response.status
 
-    app1.stubs(:get_git_config).with('http.receivepack').returns('false')
+    git.any_instance.stubs(:config).with('http.receivepack').returns('false')
     session.get "/example/info/refs?service=git-receive-pack"
     assert_equal 404, session.last_response.status
   end
 
   def test_git_config_upload_pack
     app1 = Grack::Server.new({:project_root => example})
+    # app1.instance_variable_set(:@git, Grack::Git.new('git', example ))
     session = Rack::Test::Session.new(app1)
-
-    app1.stubs(:get_git_config).with('http.uploadpack').returns('')
+    git = Grack::Git
+    git.any_instance.stubs(:config).with('http.uploadpack').returns('')
     session.get "/example/info/refs?service=git-upload-pack"
     assert_equal 200, session.last_response.status
 
-    app1.stubs(:get_git_config).with('http.uploadpack').returns('true')
+    git.any_instance.stubs(:config).with('http.uploadpack').returns('true')
     session.get "/example/info/refs?service=git-upload-pack"
     assert_equal 200, session.last_response.status
 
-    app1.stubs(:get_git_config).with('http.uploadpack').returns('false')
+    git.any_instance.stubs(:config).with('http.uploadpack').returns('false')
     session.get "/example/info/refs?service=git-upload-pack"
     assert_equal 404, session.last_response.status
   end
 
   def test_send_file
     app1 = app
-    app1.instance_variable_set(:@dir, Dir.pwd)
+    app1.instance_variable_set(:@git, Grack::Git.new('git', Dir.pwd))
     # Reject path traversal
     assert_equal 404, app1.send_file('tests/../tests', 'text/plain').first
     # Reject paths starting with '|', avoid File.read('|touch /tmp/pawned; ls /tmp')
     assert_equal 404, app1.send_file('|tests', 'text/plain').first
   end
 
-  def test_get_git_dir
+  def test_get_git
     # Guard against non-existent directories
-    assert_equal false, app.get_git_dir('foobar')
+    git1 = Grack::Git.new('git', 'foobar')
+    assert_equal false, git1.valid_repo?
     # Guard against path traversal
-    assert_equal false, app.get_git_dir('/../tests')
+    git2 = Grack::Git.new('git', '/../tests')
+    assert_equal false, git2.valid_repo?
   end
 
   private
@@ -241,7 +249,8 @@ class MockProcess
   def write(data)
   end
 
-  def read(data)
+  def read(data = nil)
+    ''
   end
 
   def eof?

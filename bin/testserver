@@ -1,0 +1,14 @@
+#! /usr/bin/env ruby
+libdir = File.absolute_path( File.join( File.dirname(__FILE__), '../lib' ) )
+$LOAD_PATH.unshift(libdir) unless $LOAD_PATH.include?(libdir)
+
+require 'grack'
+require 'rack'
+root = File.absolute_path( File.join( File.dirname(__FILE__), '../examples' ) )
+app = Grack::Server.new({
+	project_root: root,
+	upload_pack: true,
+	receive_pack:true
+})
+
+Rack::Server.start app: app, Port: 3001
