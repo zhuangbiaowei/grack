@@ -1,5 +1,3 @@
-*.swp
-*.swo
 coverage/
 examples/*.git
 pkg/

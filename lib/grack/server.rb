@@ -100,7 +100,6 @@ module Grack
 
     def get_info_refs
       service_name = get_service_type
-
       if has_access(service_name)
         refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', git.repo])
 

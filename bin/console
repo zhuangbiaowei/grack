@@ -3,4 +3,4 @@
 set -e
 
 cd $(dirname "$0")/..
-exec /usr/bin/env pry -Ilib -r grack
+exec /usr/bin/env bundle exec pry -Ilib -r grack
