@@ -3,11 +3,11 @@ require 'rack/request'
 require 'rack/response'
 require 'rack/utils'
 require 'time'
+
 require 'grack/git'
 
 module Grack
   class Server
-
     attr_reader :git
 
     SERVICES = [
@@ -53,7 +53,7 @@ module Grack
       @git = get_git(path)
       return render_not_found unless git.valid_repo?
 
-      self.method(cmd).call()
+      self.method(cmd).call
     end
 
     # ---------------------------------
@@ -67,7 +67,8 @@ module Grack
     CRLF = "\r\n"
 
     def service_rpc
-      return render_no_access unless has_access(@rpc, true)
+      return render_no_access unless has_access?(@rpc, true)
+
       input = read_body
 
       @res = Rack::Response.new
@@ -80,10 +81,11 @@ module Grack
         git.execute([@rpc, '--stateless-rpc', git.repo]) do |pipe|
           pipe.write(input)
           pipe.close_write
-          while !pipe.eof?
-            block = pipe.read(8192)           # 8KB at a time
-            @res.write encode_chunk(block)    # stream it to the client
+
+          while block = pipe.read(8192)     # 8KB at a time
+            @res.write encode_chunk(block)  # stream it to the client
           end
+
           @res.write terminating_chunk
         end
       end
@@ -91,29 +93,29 @@ module Grack
 
     def encode_chunk(chunk)
       size_in_hex = chunk.size.to_s(16)
-      [ size_in_hex, CRLF, chunk, CRLF ].join
+      [size_in_hex, CRLF, chunk, CRLF].join
     end
 
     def terminating_chunk
-      [ 0, CRLF, CRLF ].join
+      [0, CRLF, CRLF].join
     end
 
     def get_info_refs
       service_name = get_service_type
-      if has_access(service_name)
-        refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', git.repo])
+      return dumb_info_refs unless has_access?(service_name)
 
-        @res = Rack::Response.new
-        @res.status = 200
-        @res["Content-Type"] = "application/x-git-%s-advertisement" % service_name
-        hdr_nocache
-        @res.write(pkt_write("# service=git-#{service_name}\n"))
-        @res.write(pkt_flush)
-        @res.write(refs)
-        @res.finish
-      else
-        dumb_info_refs
-      end
+      refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', git.repo])
+
+      @res = Rack::Response.new
+      @res.status = 200
+      @res["Content-Type"] = "application/x-git-%s-advertisement" % service_name
+      hdr_nocache
+
+      @res.write(pkt_write("# service=git-#{service_name}\n"))
+      @res.write(pkt_flush)
+      @res.write(refs)
+
+      @res.finish
     end
 
     def dumb_info_refs
@@ -158,38 +160,33 @@ module Grack
     # logic helping functions
     # ------------------------
 
-    F = ::File
-
     # some of this borrowed from the Rack::File implementation
     def send_file(reqfile, content_type)
       reqfile = File.join(git.repo, reqfile)
-      return render_not_found unless F.exists?(reqfile)
+      return render_not_found unless File.exists?(reqfile)
 
-      if reqfile == File.realpath(reqfile)
-        # reqfile looks legit: no path traversal, no leading '|'
-      else
-        # reqfile does not look trustworthy; abort
-        return render_not_found
-      end
+      return render_not_found unless reqfile == File.realpath(reqfile)
+
+      # reqfile looks legit: no path traversal, no leading '|'
 
       @res = Rack::Response.new
       @res.status = 200
       @res["Content-Type"]  = content_type
-      @res["Last-Modified"] = F.mtime(reqfile).httpdate
+      @res["Last-Modified"] = File.mtime(reqfile).httpdate
 
       yield
 
-      if size = F.size?(reqfile)
+      if size = File.size?(reqfile)
         @res["Content-Length"] = size.to_s
         @res.finish do
-          F.open(reqfile, "rb") do |file|
+          File.open(reqfile, "rb") do |file|
             while part = file.read(8192)
               @res.write part
             end
           end
         end
       else
-        body = [F.read(reqfile)]
+        body = [File.read(reqfile)]
         size = Rack::Utils.bytesize(body.first)
         @res["Content-Length"] = size
         @res.write body
@@ -213,37 +210,46 @@ module Grack
     def match_routing
       cmd = nil
       path = nil
+
       SERVICES.each do |method, handler, match, rpc|
-        if m = Regexp.new(match).match(@req.path_info)
-          return ['not_allowed'] if method != @req.request_method
-          cmd = handler
-          path = m[1]
-          file = @req.path_info.sub(path + '/', '')
-          return [cmd, path, file, rpc]
-        end
+        next unless m = Regexp.new(match).match(@req.path_info)
+
+        return ['not_allowed'] unless method == @req.request_method
+
+        cmd = handler
+        path = m[1]
+        file = @req.path_info.sub(path + '/', '')
+
+        return [cmd, path, file, rpc]
       end
-      return nil
+      
+      nil
     end
 
-    def has_access(rpc, check_content_type = false)
+    def has_access?(rpc, check_content_type = false)
       if check_content_type
-        return false if @req.content_type != "application/x-git-%s-request" % rpc
+        conten_type = "application/x-git-%s-request" % rpc
+        return false unless @req.content_type == conten_type
       end
-      return false unless ['upload-pack', 'receive-pack'].include? rpc
+
+      return false unless ['upload-pack', 'receive-pack'].include?(rpc)
+
       if rpc == 'receive-pack'
-        return @config[:receive_pack] if @config.include? :receive_pack
+        return @config[:receive_pack] if @config.include?(:receive_pack)
       end
+
       if rpc == 'upload-pack'
-        return @config[:upload_pack] if @config.include? :upload_pack
+        return @config[:upload_pack] if @config.include?(:upload_pack)
       end
-      return git.config_setting(rpc)
+
+      git.config_setting(rpc)
     end
 
     def read_body
       if @env["HTTP_CONTENT_ENCODING"] =~ /gzip/
-        input = Zlib::GzipReader.new(@req.body).read
+        Zlib::GzipReader.new(@req.body).read
       else
-        input = @req.body.read
+        @req.body.read
       end
     end
 
@@ -251,7 +257,7 @@ module Grack
     # HTTP error response handling functions
     # --------------------------------------
 
-    PLAIN_TYPE = {"Content-Type" => "text/plain"}
+    PLAIN_TYPE = { "Content-Type" => "text/plain" }
 
     def render_method_not_allowed
       if @env['SERVER_PROTOCOL'] == "HTTP/1.1"
@@ -279,9 +285,8 @@ module Grack
     end
 
     def pkt_write(str)
-      (str.size + 4).to_s(base=16).rjust(4, '0') + str
+      (str.size + 4).to_s(16).rjust(4, '0') + str
     end
-
 
     # ------------------------
     # header writing functions
@@ -299,6 +304,5 @@ module Grack
       @res["Expires"] = (now + 31536000).to_s;
       @res["Cache-Control"] = "public, max-age=31536000";
     end
-
   end
 end
