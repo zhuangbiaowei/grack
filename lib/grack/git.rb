@@ -1,6 +1,5 @@
 module Grack
   class Git
-
     attr_reader :repo
 
     def initialize(git_path, repo_path)
@@ -21,30 +20,32 @@ module Grack
     end
 
     def execute(cmd)
+      cmd = command(cmd)
       if block_given?
-        IO.popen(popen_env, command(cmd), File::RDWR, popen_options) do |pipe|
+        IO.popen(popen_env, cmd, File::RDWR, popen_options) do |pipe|
           yield(pipe)
         end
       else
-        capture( command(cmd) ).chomp
+        capture(cmd).chomp
       end
     end
 
     def popen_options
-      {chdir: repo, unsetenv_others: true}
+      { chdir: repo, unsetenv_others: true }
     end
 
     def popen_env
-      {'PATH' => ENV['PATH'], 'GL_ID' => ENV['GL_ID']}
+      { 'PATH' => ENV['PATH'], 'GL_ID' => ENV['GL_ID'] }
     end
 
     def config_setting(service_name)
       service_name = service_name.gsub('-', '')
       setting = config("http.#{service_name}")
+
       if service_name == 'uploadpack'
-        return setting != 'false'
+        setting != 'false'
       else
-        return setting == 'true'
+        setting == 'true'
       end
     end
 
@@ -53,13 +54,16 @@ module Grack
     end
 
     def valid_repo?
-      return false unless (File.exists?(repo) && File.realpath(repo) == repo)
+      return false unless File.exists?(repo) && File.realpath(repo) == repo
+
       match = execute(%W(rev-parse --git-dir)).match(/\.$|\.git$/)
+      
       if match.to_s == '.git'
         # Since the parent could be a git repo, we want to make sure the actual repo contains a git dir.
         return false unless Dir.entries(repo).include?('.git')
       end
-      return !!match
+
+      match
     end
   end
 end
