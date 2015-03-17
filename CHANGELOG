@@ -1,2 +1,10 @@
+2.0.0
+  - Use safer shell commands and avoid Dir.chdir
+  - Restrict the environment for shell commands
+  - Make Grack::Server thread-safe (zimbatm)
+  - Make sure child processes get reaped after popen
+  - Verify requested path is actually a Git directory (Ryan Canty)
+
+
 1.1.0
   - Modifies service_rpc to use chunked transfer (https://github.com/gitlabhq/grack/pull/1)
