@@ -103,13 +103,14 @@ module Grack
 
     def get_info_refs
       service_name = get_service_type
-      return dumb_info_refs unless has_access?(service_name)
+      return dumb_info_refs unless smart_http?(service_name)
+      return render_no_access unless has_access?(service_name)
 
       refs = git.execute([service_name, '--stateless-rpc', '--advertise-refs', git.repo])
 
       @res = Rack::Response.new
       @res.status = 200
-      @res["Content-Type"] = "application/x-git-%s-advertisement" % service_name
+      @res["Content-Type"] = "application/x-git-#{service_name}-advertisement"
       hdr_nocache
 
       @res.write(pkt_write("# service=git-#{service_name}\n"))
@@ -227,10 +228,13 @@ module Grack
       nil
     end
 
+    def smart_http?(rpc = @rpc)
+      @req.content_type ==  "application/x-git-#{rpc}-request"
+    end
+ 
     def has_access?(rpc, check_content_type = false)
       if check_content_type
-        conten_type = "application/x-git-%s-request" % rpc
-        return false unless @req.content_type == conten_type
+        return false unless smart_http?(rpc)
       end
 
       return false unless ['upload-pack', 'receive-pack'].include?(rpc)
