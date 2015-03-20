@@ -5,9 +5,13 @@ task :default => :test
 
 desc "Run the tests."
 task :test do
+  system "git clone --bare git://github.com/schacon/simplegit.git tests/example.git"
+  # We could put this in a chdir block but we should keep it consistent with Travis
+  system "cd tests/example.git && git repack && cd ../.."
   Dir.glob("tests/*_test.rb").each do |f|
   	system "ruby #{f}"
   end
+  system "rm -rf tests/example.git"
 end
 
 desc "Run test coverage."
