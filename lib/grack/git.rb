@@ -16,7 +16,10 @@ module Grack
     end
 
     def capture(cmd)
-      IO.popen(popen_env, cmd, popen_options).read
+      # _Not_ the same as `IO.popen(...).read`
+      # By using a block we tell IO.popen to close (wait for) the child process
+      # after we are done reading its output.
+      IO.popen(popen_env, cmd, popen_options) { |p| p.read }
     end
 
     def execute(cmd)
