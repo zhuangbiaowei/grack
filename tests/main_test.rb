@@ -25,7 +25,7 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_upload_pack_advertisement
-    get "/example.git/info/refs?service=git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
+    get "/example/info/refs?service=git-upload-pack"
     assert_equal 200, r.status
     assert_equal "application/x-git-upload-pack-advertisement", r.headers["Content-Type"]
     assert_equal "001e# service=git-upload-pack", r.body.split("\n").first
@@ -33,22 +33,22 @@ class GitHttpTest < Test::Unit::TestCase
   end
 
   def test_no_access_wrong_content_type_up
-    post "/example.git/git-upload-pack"
+    post "/example/git-upload-pack"
     assert_equal 403, r.status
   end
 
   def test_no_access_wrong_content_type_rp
-    post "/example.git/git-receive-pack"
+    post "/example/git-receive-pack"
     assert_equal 403, r.status
   end
 
   def test_no_access_wrong_method_rcp
-    get "/example.git/git-upload-pack"
+    get "/example/git-upload-pack"
     assert_equal 400, r.status
   end
 
   def test_no_access_wrong_command_rcp
-    post "/example.git/git-upload-packfile"
+    post "/example/git-upload-packfile"
     assert_equal 404, r.status
   end
 
@@ -61,13 +61,13 @@ class GitHttpTest < Test::Unit::TestCase
   def test_upload_pack_rpc
     Grack::Git.any_instance.stubs(:valid_repo?).returns(true)
     IO.stubs(:popen).returns(MockProcess.new)
-    post "/example.git/git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
+    post "/example/git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
     assert_equal 200, r.status
     assert_equal "application/x-git-upload-pack-result", r.headers["Content-Type"]
   end
 
   def test_receive_pack_advertisement
-    get "/example.git/info/refs?service=git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
+    get "/example/info/refs?service=git-receive-pack"
     assert_equal 200, r.status
     assert_equal "application/x-git-receive-pack-advertisement", r.headers["Content-Type"]
     assert_equal "001f# service=git-receive-pack", r.body.split("\n").first
@@ -79,25 +79,25 @@ class GitHttpTest < Test::Unit::TestCase
   def test_recieve_pack_rpc
     Grack::Git.any_instance.stubs(:valid_repo?).returns(true)
     IO.stubs(:popen).yields(MockProcess.new)
-    post "/example.git/git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
+    post "/example/git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
     assert_equal 200, r.status
     assert_equal "application/x-git-receive-pack-result", r.headers["Content-Type"]
   end
 
   def test_info_refs_dumb
-    get "/example.git/info/refs"
+    get "/example/.git/info/refs"
     assert_equal 200, r.status
   end
 
   def test_info_packs
-    get "/example.git/objects/info/packs"
+    get "/example/.git/objects/info/packs"
     assert_equal 200, r.status
     assert_match /P pack-(.*?).pack/, r.body
   end
 
   def test_loose_objects
     path, content = write_test_objects
-    get "/example.git/objects/#{path}"
+    get "/example/.git/objects/#{path}"
     assert_equal 200, r.status
     assert_equal content, r.body
     remove_test_objects
@@ -105,7 +105,7 @@ class GitHttpTest < Test::Unit::TestCase
 
   def test_pack_file
     path, content = write_test_objects
-    get "/example.git/objects/pack/pack-#{content}.pack"
+    get "/example/.git/objects/pack/pack-#{content}.pack"
     assert_equal 200, r.status
     assert_equal content, r.body
     remove_test_objects
@@ -113,44 +113,44 @@ class GitHttpTest < Test::Unit::TestCase
 
   def test_index_file
     path, content = write_test_objects
-    get "/example.git/objects/pack/pack-#{content}.idx"
+    get "/example/.git/objects/pack/pack-#{content}.idx"
     assert_equal 200, r.status
     assert_equal content, r.body
     remove_test_objects
   end
 
   def test_text_file
-    get "/example.git/HEAD"
+    get "/example/.git/HEAD"
     assert_equal 200, r.status
-    assert_equal 23, r.body.size  # submodules have detached head
+    assert_equal 41, r.body.size  # submodules have detached head
   end
 
   def test_no_size_avail
     File.stubs('size?').returns(false)
-    get "/example.git/HEAD"
+    get "/example/.git/HEAD"
     assert_equal 200, r.status
-    assert_equal 28, r.body.size  # submodules have detached head
+    assert_equal 46, r.body.size  # submodules have detached head
   end
 
   def test_config_upload_pack_off
     a1 = app
     a1.set_config_setting(:upload_pack, false)
     session = Rack::Test::Session.new(a1)
-    session.get "/example.git/info/refs?service=git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
-    assert_equal 403, session.last_response.status
+    session.get "/example/info/refs?service=git-upload-pack"
+    assert_equal 404, session.last_response.status
   end
 
   def test_config_receive_pack_off
     a1 = app
     a1.set_config_setting(:receive_pack, false)
     session = Rack::Test::Session.new(a1)
-    session.get "/example.git/info/refs?service=git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
-    assert_equal 403, session.last_response.status
+    session.get "/example/info/refs?service=git-receive-pack"
+    assert_equal 404, session.last_response.status
   end
 
   def test_config_bad_service
-    get "/example.git/info/refs?service=git-receive-packfile", {}, {"CONTENT_TYPE" => "application/x-git-receive-packfile-request"}
-    assert_equal 403, r.status
+    get "/example/info/refs?service=git-receive-packfile"
+    assert_equal 404, r.status
   end
 
   def test_git_config_receive_pack
@@ -159,16 +159,16 @@ class GitHttpTest < Test::Unit::TestCase
     session = Rack::Test::Session.new(app1)
     git = Grack::Git
     git.any_instance.stubs(:config).with('http.receivepack').returns('')
-    session.get "/example.git/info/refs?service=git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
-    assert_equal 403, session.last_response.status
+    session.get "/example/info/refs?service=git-receive-pack"
+    assert_equal 404, session.last_response.status
 
     git.any_instance.stubs(:config).with('http.receivepack').returns('true')
-    session.get "/example.git/info/refs?service=git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
+    session.get "/example/info/refs?service=git-receive-pack"
     assert_equal 200, session.last_response.status
 
     git.any_instance.stubs(:config).with('http.receivepack').returns('false')
-    session.get "/example.git/info/refs?service=git-receive-pack", {}, {"CONTENT_TYPE" => "application/x-git-receive-pack-request"}
-    assert_equal 403, session.last_response.status
+    session.get "/example/info/refs?service=git-receive-pack"
+    assert_equal 404, session.last_response.status
   end
 
   def test_git_config_upload_pack
@@ -177,16 +177,16 @@ class GitHttpTest < Test::Unit::TestCase
     session = Rack::Test::Session.new(app1)
     git = Grack::Git
     git.any_instance.stubs(:config).with('http.uploadpack').returns('')
-    session.get "/example.git/info/refs?service=git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
+    session.get "/example/info/refs?service=git-upload-pack"
     assert_equal 200, session.last_response.status
 
     git.any_instance.stubs(:config).with('http.uploadpack').returns('true')
-    session.get "/example.git/info/refs?service=git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
+    session.get "/example/info/refs?service=git-upload-pack"
     assert_equal 200, session.last_response.status
 
     git.any_instance.stubs(:config).with('http.uploadpack').returns('false')
-    session.get "/example.git/info/refs?service=git-upload-pack", {}, {"CONTENT_TYPE" => "application/x-git-upload-pack-request"}
-    assert_equal 403, session.last_response.status
+    session.get "/example/info/refs?service=git-upload-pack"
+    assert_equal 404, session.last_response.status
   end
 
   def test_send_file
@@ -215,7 +215,7 @@ class GitHttpTest < Test::Unit::TestCase
 
   def write_test_objects
     content = Digest::SHA1.hexdigest('gitrocks')
-    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example.git', 'objects')
+    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')
     obj = File.join(base, '20')
     Dir.mkdir(obj) rescue nil
     file = File.join(obj, content[0, 38])
@@ -229,7 +229,7 @@ class GitHttpTest < Test::Unit::TestCase
 
   def remove_test_objects
     content = Digest::SHA1.hexdigest('gitrocks')
-    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example.git', 'objects')
+    base = File.join(File.expand_path(File.dirname(__FILE__)), 'example', '.git', 'objects')
     obj = File.join(base, '20')
     file = File.join(obj, content[0, 38])
     pack = File.join(base, 'pack', "pack-#{content}.pack")

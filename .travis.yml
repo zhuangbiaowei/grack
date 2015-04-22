@@ -5,9 +5,10 @@ branches:
   only:
     - 'master'
 rvm:
+  - 1.9.3-p327
   - 2.0.0
 before_script:
   - "bundle install"
-  - "git clone --bare git://github.com/schacon/simplegit.git tests/example.git"
-  - "cd tests/example.git && git repack && cd ../.."
+  - "git submodule init"
+  - "git submodule update"
 script: "bundle exec rake"
