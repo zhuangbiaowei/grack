@@ -1,5 +1,8 @@
+2.0.2
+ - Revert MR that broke smart HTTP clients.
+
 2.0.1
-  Make sure child processes get reaped after popen, again.
+  - Make sure child processes get reaped after popen, again.
 
 2.0.0
   - Use safer shell commands and avoid Dir.chdir
