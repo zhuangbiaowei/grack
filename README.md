@@ -1,3 +1,12 @@
+Aboub GVFS support
+==================
+
+[Microsoft GVFS](https://github.com/Microsoft/GVFS) is very powerful Git extend. But now only Microsoft's own VSTS support it.
+
+This project just a research project. By reading the source code of GVFS, and analyzing the relevant protocol content. I modify the gitlab-grack, and let it can support the GVFS protocol.
+
+Welcome everyone to work with me to improve this project.
+
 Grack - Ruby/Rack Git Smart-HTTP Server Handler
 ===============================================
 
