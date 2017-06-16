@@ -1,6 +1,7 @@
 require 'rack/builder'
 require 'grack/auth'
 require 'grack/server'
+require 'grack/gvfs_helper'
 
 module Grack
   module Bundle

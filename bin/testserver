@@ -11,4 +11,4 @@ app = Grack::Server.new({
 	receive_pack:true
 })
 
-Rack::Server.start app: app, Port: 3001
+Rack::Server.start app: app, Port: 80, Host: '0.0.0.0'

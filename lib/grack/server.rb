@@ -23,6 +23,12 @@ module Grack
       ["GET",  'get_loose_object', "(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$"],
       ["GET",  'get_pack_file',    "(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$"],
       ["GET",  'get_idx_file',     "(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$"],
+
+      ["GET",  'get_gvfs_config',  "(.*?)/gvfs/config"],
+      ["POST", 'get_gvfs_objects', "(.*?)/gvfs/objects$"],
+      ["POST", 'get_gvfs_size',    "(.*?)/gvfs/sizes"],
+      ["GET",  'get_gvfs_prefetch',"(.*?)/gvfs/prefetch"],
+      ["GET",  'get_gvfs_object',  "(.*?)/gvfs/objects/[0-9a-fA-F]{40}$"],
     ]
 
     def initialize(config = false)
@@ -100,6 +106,68 @@ module Grack
       [0, CRLF, CRLF].join
     end
 
+    def get_gvfs_config
+
+      puts @req.inspect
+
+      @res = Rack::Response.new
+      @res.status = 200
+      @res["Content-Type"] = "text/html;charset=utf-8"
+      @res.write("{\"AllowedGvfsClientVersions\":null}")
+      @res.finish
+    end
+
+    def get_gvfs_objects
+      input = read_body
+      puts input
+      req = parse_req(input)
+      obj_id_list = get_obj_id_list(git,req)
+      file_name = pack_file(git,obj_id_list)
+      send_file(file_name, "application/x-git-packfile") do 
+        hdr_cache_forever
+      end
+    end
+
+    def get_gvfs_size
+      input = read_body
+      obj_list = parse_req(input)
+      obj_sizes = get_obj_size(git,obj_list)
+      @res = Rack::Response.new
+      @res.status = 200
+      @res["Content-Type"] = "application/json"
+      @res.write(obj_sizes.to_json)
+      @res.finish
+    end
+
+    def get_gvfs_prefetch
+      lastPackTimestamp = @req.query_string.gsub("lastPackTimestamp=","").to_i
+      packfile_list = get_packfile_list(git,lastPackTimestamp)
+      obj_id_list = get_packed_objs(git,packfile_list)
+      file_name = pack_file(git,obj_id_list)
+      tmp_file = File.new(file_name+".add","wb")
+      tmp_file.write("GPRE \x01\x01\x00")
+      time = File.mtime(file_name).to_i.to_s(16)
+      tmp_file.write(time[6..7].to_i(16).chr)
+      tmp_file.write(time[4..5].to_i(16).chr)
+      tmp_file.write(time[2..3].to_i(16).chr)
+      tmp_file.write(time[0..1].to_i(16).chr)
+      tmp_file.write("\x00\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+      body = File.binread(file_name)
+      tmp_file.write body
+      tmp_file.close
+      send_file(file_name+".add", "application/x-gvfs-timestamped-packfiles-indexes") do 
+        hdr_cache_forever
+      end
+    end
+
+    def get_gvfs_object
+      @reqfile.gsub!("gvfs/","")
+      @reqfile = @reqfile[0..9]+"/"+@reqfile[10..-1]
+      send_file(@reqfile, "application/x-git-loose-object") do
+        hdr_cache_forever
+      end
+    end
+    
     def get_info_refs
       service_name = get_service_type
       return dumb_info_refs unless has_access?(service_name)
@@ -161,7 +229,7 @@ module Grack
     # ------------------------
 
     # some of this borrowed from the Rack::File implementation
-    def send_file(reqfile, content_type)
+    def send_file(reqfile, content_type)      
       reqfile = File.join(git.repo, reqfile)
       return render_not_found unless File.exists?(reqfile)
 
